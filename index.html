@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>モンスト ショット固定ツール</title>
+<style>
+:root{--bg:#f6f6f4;--fg:#1d1d1b;--card:#fff;--bd:#d8d8d2;--ac:#2a6df4}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161616;--fg:#eee;--card:#222;--bd:#3a3a3a;--ac:#6b9bff}}
+:root[data-theme="dark"]{--bg:#161616;--fg:#eee;--card:#222;--bd:#3a3a3a;--ac:#6b9bff}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 -apple-system,"Hiragino Sans",sans-serif;padding:env(safe-area-inset-top,0px) 8px env(safe-area-inset-bottom,0px)}
+h1{font-size:17px;margin:10px 0}
+.wrap{max-width:960px;margin:auto;display:grid;gap:10px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:10px}
+canvas{width:100%;max-height:70vh;object-fit:contain;touch-action:none;background:#888;border-radius:6px;display:block}
+label{display:inline-block;margin:2px 8px 2px 0;font-size:13px}
+input[type=number]{width:70px}
+input[type=range]{width:120px;vertical-align:middle}
+button{background:var(--ac);color:#fff;border:0;border-radius:8px;padding:7px 12px;margin:3px 3px 3px 0;font-size:13px}
+button.s{background:transparent;color:var(--fg);border:1px solid var(--bd)}
+.gauge{height:14px;background:var(--bd);border-radius:7px;overflow:hidden}
+.gauge i{display:block;height:100%;width:0;background:var(--ac)}
+.small{font-size:12px;opacity:.75}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;font-size:12px;white-space:nowrap}
+td,th{border-bottom:1px solid var(--bd);padding:3px 6px;text-align:left}
+</style></head><body>
+<div class="wrap">
+<h1>モンスト ショット固定ツール</h1>
+<div class="card">
+<input type="file" id="file" accept="image/*">
+<span class="small">① スクショ読込 → ② 「スタート位置」でキャラ位置をタップ → ③ 「引っ張り」でドラッグ（引いた逆方向に飛ぶ）</span>
+<div style="margin-top:6px">
+<button id="mStart">スタート位置</button><button id="mPull" class="s">引っ張り</button>
+<label>反射回数 <input type="number" id="bn" value="6" min="1" max="20"></label>
+<label>キャラ半径 <input type="number" id="rad" value="22" min="0"></label>
+</div></div>
+
+<div class="card"><canvas id="cv" width="720" height="1280"></canvas>
+<div class="gauge" style="margin-top:6px"><i id="g"></i></div>
+<div id="info" class="small">スクショを読み込んでください</div></div>
+
+<div class="card">
+<b>盤面の範囲（壁）</b> <span class="small">反射する壁の位置を画像に合わせて調整</span><br>
+<label>左 <input type="range" id="bl" min="0" max="50" value="3"></label>
+<label>右 <input type="range" id="br" min="50" max="100" value="97"></label>
+<label>上 <input type="range" id="bt" min="0" max="60" value="17"></label>
+<label>下 <input type="range" id="bb" min="30" max="100" value="78"></label>
+</div>
+
+<div class="card">
+<b>ショット設定</b><br>
+<label>名前 <input type="text" id="nm" value="ショット1" style="width:110px"></label>
+<label>引く時間(秒) <input type="number" id="mode" value="0.5" step="0.01" min="0.01" max="3"></label><button class="s" onclick="$('mode').value=0.5">0.5秒</button><button class="s" onclick="$('mode').value=0.01">0.01秒</button>
+<label>iPhone画面(pt) <input type="number" id="sw" value="390">×<input type="number" id="sh" value="844"></label>
+<label><input type="checkbox" id="ctr" checked> 引き始めを画面中央に寄せる</label><label>中心(pt) <input type="number" id="cx" value="195">,<input type="number" id="cy" value="422"></label><label>ファイル名 <input type="text" id="fn" value="monst-shots" style="width:120px"></label><br><label>最大引き(px) <input type="number" id="mx" value="160"></label><br>
+<button id="add">保存</button><button id="dv">Voice Control用(.voicecontrolcommands)</button><button id="dl" class="s">手順書(.txt)</button><button id="dj" class="s">JSON</button>
+<div class="scroll"><table id="tb"></table></div>
+<p class="small">「Voice Control用」をiPhoneに送り（AirDrop/ファイル）、設定 → アクセシビリティ → 音声コントロール → コマンドをカスタマイズ → カスタムコマンドを読み込む、で取り込みます。※claude.ai上で開いた場合は保存の制限で末尾に「.txt」が付きます（GitHub Pagesなど自分のサイトで開けば付きません）。iPhoneの「ファイル」アプリで名前を変更し、「.txt」を消して「.voicecontrolcommands」にしてから取り込んでください。座標はiPhone画面のpt基準で、画面サイズ欄を機種に合わせてください。</p>
+</div></div>
+<script>
+const $=id=>document.getElementById(id);
+const cv=$('cv'),c=cv.getContext('2d');
+let img=null,mode='start',start=null,pull=null,shots=[];
+try{const t=localStorage.getItem('monstShots');if(t)shots=JSON.parse(t)}catch(e){}
+$('file').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
+ r.onload=()=>{const i=new Image();i.onload=()=>{img=i;cv.width=i.width;cv.height=i.height;start=null;pull=null;draw()};i.src=r.result};r.readAsDataURL(f)};
+$('mStart').onclick=()=>{mode='start';$('mStart').className='';$('mPull').className='s'};
+$('mPull').onclick=()=>{mode='pull';$('mPull').className='';$('mStart').className='s'};
+['bl','br','bt','bb','bn','rad','mx'].forEach(i=>$(i).oninput=draw);
+function pos(e){const r=cv.getBoundingClientRect();
+ const s=Math.min(r.width/cv.width,r.height/cv.height),w=cv.width*s,h=cv.height*s,ox=(r.width-w)/2,oy=(r.height-h)/2;
+ return{x:(e.clientX-r.left-ox)/s,y:(e.clientY-r.top-oy)/s}}
+let drag=false;
+cv.onpointerdown=e=>{const p=pos(e);if(mode==='start'){start=p;pull=null}else if(start){drag=true;pull=p}draw()};
+cv.onpointermove=e=>{if(drag){pull=pos(e);draw()}};
+cv.onpointerup=()=>drag=false;
+function walls(){const W=cv.width,H=cv.height;return{l:W*$('bl').value/100,r:W*$('br').value/100,t:H*$('bt').value/100,b:H*$('bb').value/100}}
+function sim(){
+ if(!start||!pull)return null;
+ let dx=start.x-pull.x,dy=start.y-pull.y;const L=Math.hypot(dx,dy);if(L<3)return null;
+ dx/=L;dy/=L;const w=walls(),R=+$('rad').value;
+ const pts=[{x:start.x,y:start.y}],angs=[];let x=start.x,y=start.y;
+ angs.push(ang(dx,dy));
+ for(let n=0;n<=+$('bn').value;n++){
+  let tx=1e9,ty=1e9;
+  if(dx>0)tx=(w.r-R-x)/dx;else if(dx<0)tx=(w.l+R-x)/dx;
+  if(dy>0)ty=(w.b-R-y)/dy;else if(dy<0)ty=(w.t+R-y)/dy;
+  const t=Math.max(0,Math.min(tx,ty));x+=dx*t;y+=dy*t;pts.push({x,y});
+  if(n===+$('bn').value)break;
+  if(tx<=ty)dx=-dx;else dy=-dy;
+  if(tx===ty){dx=dx}
+  angs.push(ang(dx,dy));
+ }
+ return{pts,angs,L}}
+function ang(dx,dy){return Math.round((Math.atan2(dx,-dy)*180/Math.PI)*10)/10} // 真上=0°, 右が+
+function draw(){
+ c.clearRect(0,0,cv.width,cv.height);
+ if(img)c.drawImage(img,0,0);else{c.fillStyle='#777';c.fillRect(0,0,cv.width,cv.height)}
+ const w=walls(),k=cv.width/360;
+ c.strokeStyle='rgba(255,200,0,.9)';c.lineWidth=2*k;c.setLineDash([8*k,6*k]);c.strokeRect(w.l,w.t,w.r-w.l,w.b-w.t);c.setLineDash([]);
+ const s=sim();
+ if(start){c.fillStyle='rgba(0,200,255,.5)';c.beginPath();c.arc(start.x,start.y,+$('rad').value,0,7);c.fill();c.strokeStyle='#fff';c.lineWidth=2*k;c.stroke()}
+ if(pull&&start){c.strokeStyle='rgba(255,80,80,.9)';c.lineWidth=3*k;c.beginPath();c.moveTo(start.x,start.y);c.lineTo(pull.x,pull.y);c.stroke()}
+ let ratio=0;
+ if(s){
+  ratio=Math.min(1,s.L/(+$('mx').value));
+  c.lineWidth=4*k;c.font=(13*k)+'px sans-serif';
+  s.pts.forEach((p,i)=>{
+   if(i>0){c.strokeStyle=`hsl(${(i*55)%360},90%,55%)`;c.beginPath();c.moveTo(s.pts[i-1].x,s.pts[i-1].y);c.lineTo(p.x,p.y);c.stroke();
+    const mx=(p.x+s.pts[i-1].x)/2,my=(p.y+s.pts[i-1].y)/2;
+    c.fillStyle='#000';c.fillRect(mx-2,my-14*k,52*k,17*k);c.fillStyle='#fff';c.fillText(s.angs[i-1]+'°',mx,my)}
+   c.fillStyle='#fff';c.beginPath();c.arc(p.x,p.y,4*k,0,7);c.fill()});
+  $('info').textContent='発射角 '+s.angs[0]+'°（真上0°・右+）/ 水平から '+(90-Math.abs(s.angs[0])).toFixed(1)+'° / 引き '+Math.round(s.L)+'px / 反射 '+(s.pts.length-2)+'回 / 各区間の角度は線上に表示'}
+ $('g').style.width=ratio*100+'%'}
+function fit(x0,y0,x1,y1,sw,sh){
+ let vx=x1-x0,vy=y1-y0;
+ if(!$('ctr').checked)return{start:{x:Math.round(x0),y:Math.round(y0)},end:{x:Math.round(x1),y:Math.round(y1)}};
+ const cx=+$('cx').value,cy=+$('cy').value,M=20,hx=Math.abs(vx)/2,hy=Math.abs(vy)/2;
+ let k=1;if(hx>0)k=Math.min(k,(Math.min(cx,sw-cx)-M)/hx);if(hy>0)k=Math.min(k,(Math.min(cy,sh-cy)-M)/hy);
+ k=Math.max(0.05,k);vx*=k;vy*=k;const r=n=>Math.round(n*10)/10;
+ return{start:{x:r(cx-vx/2),y:r(cy-vy/2)},end:{x:r(cx+vx/2),y:r(cy+vy/2)}}}
+function gesture(){
+ const s=sim();if(!s)return null;
+ const m=$('mode').value,sw=+$('sw').value,sh=+$('sh').value;
+ const sx=start.x/cv.width,sy=start.y/cv.height,ex=pull.x/cv.width,ey=pull.y/cv.height;
+ return{name:$('nm').value,seconds:+m,angle:s.angs[0],
+  ...fit(sx*sw,sy*sh,ex*sw,ey*sh,sw,sh),
+  gauge:Math.round(Math.min(1,s.L/(+$('mx').value))*100),bounces:s.pts.length-2}}
+$('add').onclick=()=>{const g=gesture();if(!g)return alert('スタート位置と引っ張りを設定してください');if(shots.some(s=>s.name===g.name))return alert('「'+g.name+'」は同じ名前のショットが既にあります。同じ名前だと最初の1つしか実行されないので、別の名前にしてください');shots.push(g);$('nm').value=g.name.replace(/(\d+)(?!.*\d)/,m=>+m+1)===g.name?g.name+'2':g.name.replace(/(\d+)(?!.*\d)/,m=>+m+1);save();render()};
+function save(){try{localStorage.setItem('monstShots',JSON.stringify(shots))}catch(e){}}
+function render(){$('tb').innerHTML='<tr><th>名前</th><th>始点</th><th>終点</th><th>時間</th><th>角度</th><th>ゲージ</th><th></th></tr>'+
+ shots.map((g,i)=>`<tr><td><input value="${esc(g.name)}" style="width:90px" onchange="shots[${i}].name=this.value;save()"></td><td>${g.start.x},${g.start.y}</td><td>${g.end.x},${g.end.y}</td><td>${g.seconds}s</td><td>${g.angle}°</td><td>${g.gauge}%</td><td><button class="s" onclick="shots.splice(${i},1);save();render()">削除</button></td></tr>`).join('')}
+function esc(s){return String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))}
+function fname(){return ($('fn').value||'monst-shots').replace(/[\\\/:*?"<>|\s]+/g,'_')}
+async function dlf(name,txt){
+ if(!window.claude){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt]));a.download=name;document.body.appendChild(a);a.click();a.remove();return}
+ if(name.endsWith('.voicecontrolcommands'))name+='.txt';
+ try{const d=await claude.use('downloads');if(!d)return alert('このビューでは保存できません');await d.save({filename:name,data:txt})}catch(e){if(!e||e.code!=='declined')alert('保存できませんでした: '+((e&&(e.code||e.message))||e))}}
+$('dl').onclick=()=>{if(!shots.length)return alert('先に「保存」でショットを追加してください');
+ let t='モンスト ショット手順書（Voice Control カスタムジェスチャ用）\n\n作成手順:\n設定 > アクセシビリティ > 音声コントロール > コマンドをカスタマイズ > 新規コマンド\nフレーズ=下記の名前 / アクション=カスタムジェスチャを実行 で、始点から終点へ指定時間でなぞって録画。\n座標はiPhone画面(pt)基準。0.5秒=ゆっくり引く、0.01秒=素早く弾く。\n\n';
+ shots.forEach((g,i)=>{t+=`${i+1}. フレーズ「${g.name}」\n  始点(x,y): ${g.start.x}, ${g.start.y}\n  終点(x,y): ${g.end.x}, ${g.end.y}\n  引く時間: ${g.seconds}秒 / 発射角: ${g.angle}° / ゲージ: ${g.gauge}% / 反射: ${g.bounces}回\n\n`});
+ dlf(fname()+'.txt',t)};
+$('dj').onclick=()=>{if(!shots.length)return alert('先に「保存」でショットを追加してください');dlf(fname()+'.json',JSON.stringify(shots,null,2))};
+class UID{constructor(n){this.n=n}}class Real{constructor(v){this.v=v}}
+function bplist(root){
+ const objs=[],memo=new Map();
+ const pk=o=>o instanceof UID?'u'+o.n:o instanceof Real?'r'+o.v:typeof o+':'+o;
+ function add(o){
+  const prim=!(o instanceof Array)&&(o instanceof UID||o instanceof Real||typeof o!=='object');
+  if(prim){const k=pk(o);if(memo.has(k))return memo.get(k)}
+  const i=objs.length;objs.push(null);
+  if(prim){memo.set(pk(o),i);objs[i]={t:'v',v:o}}
+  else if(o instanceof Array){const r=o.map(add);objs[i]={t:'a',r}}
+  else{const ks=Object.keys(o);const kr=ks.map(k=>add(k));const vr=ks.map(k=>add(o[k]));objs[i]={t:'d',k:kr,v:vr}}
+  return i}
+ add(root);
+ const rs=objs.length<256?1:2;
+ const out=[];const push=b=>{for(const x of b)out.push(x)};
+ push([...'bplist00'].map(c=>c.charCodeAt(0)));
+ const offs=[];
+ const intb=n=>n<256?[0x10,n]:n<65536?[0x11,n>>8,n&255]:[0x12,(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255];
+ const len=(m,n)=>{if(n<15)push([m|n]);else{push([m|15]);push(intb(n))}};
+ const ref=r=>{if(rs===1)push([r]);else push([r>>8,r&255])};
+ objs.forEach(o=>{offs.push(out.length);
+  if(o.t==='a'){len(0xA0,o.r.length);o.r.forEach(ref)}
+  else if(o.t==='d'){len(0xD0,o.k.length);o.k.forEach(ref);o.v.forEach(ref)}
+  else{const v=o.v;
+   if(v===true)push([9]);else if(v===false)push([8]);
+   else if(typeof v==='number')push(intb(v));
+   else if(v instanceof Real){const b=new Uint8Array(8);new DataView(b.buffer).setFloat64(0,v.v);push([0x23]);push(b)}
+   else if(v instanceof UID){if(v.n<256)push([0x80,v.n]);else push([0x81,v.n>>8,v.n&255])}
+   else{len(0x50,v.length);for(const c of v)push([c.charCodeAt(0)])}}});
+ const ot=out.length,os=ot<65536?2:4;
+ offs.forEach(f=>{if(os===2)push([f>>8,f&255]);else push([f>>>24,(f>>>16)&255,(f>>>8)&255,f&255])});
+ const w8=n=>push([0,0,0,0,(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255]);
+ push([0,0,0,0,0,0,os,rs]);w8(objs.length);w8(0);w8(ot);
+ return Uint8Array.from(out)}
+function gestureArchive(pts){
+ const O=[];const add=o=>{O.push(o);return new UID(O.length-1)};
+ add('$null');
+ const root={};const ri=add(root);
+ const cl=(n,c)=>add({$classname:n,$classes:c});
+ const cVal=cl('NSValue',['NSValue','NSObject']);
+ const cMD=cl('NSMutableDictionary',['NSMutableDictionary','NSDictionary','NSObject']);
+ const cD=cl('NSDictionary',['NSDictionary','NSObject']);
+ const cArr=cl('NSMutableArray',['NSMutableArray','NSArray','NSObject']);
+ const cGes=cl('AXMutableReplayableGesture',['AXMutableReplayableGesture','AXReplayableGesture','NSObject']);
+ const kF=add('Fingers'),kT=add('Time'),kFo=add('Forces'),one=add(1),zero=add(new Real(0));
+ const B=810000000;
+ const evs=pts.map(p=>{
+  const val=add({'NS.pointval':add('{'+p.x+', '+p.y+'}'),$class:cVal,'NS.special':1});
+  const fin=add({'NS.keys':[one],'NS.objects':[val],$class:cMD});
+  const frc=add({'NS.keys':[one],'NS.objects':[zero],$class:cMD});
+  return add({'NS.keys':[kF,kT,kFo],'NS.objects':[fin,add(new Real(B+p.t)),frc],$class:cD})});
+ const last=pts[pts.length-1];
+ const ef=add({'NS.keys':[],'NS.objects':[],$class:cMD}),eg=add({'NS.keys':[],'NS.objects':[],$class:cMD});
+ evs.push(add({'NS.keys':[kF,kT,kFo],'NS.objects':[ef,add(new Real(B+last.t+0.0001)),eg],$class:cD}));
+ const all=add({'NS.objects':evs,$class:cArr});
+ Object.assign(root,{$class:cGes,AllEvents:all,Version:add(1),ArePointsDeviceRelative:false});
+ return bplist({$archiver:'NSKeyedArchiver',$objects:O,$top:{root:ri},$version:100000})}
+function makeGesture(s){ // s:{start,end,seconds}
+ const n=Math.max(2,Math.round(s.seconds*60)+1),pts=[];
+ for(let i=0;i<n;i++){const u=i/(n-1),e=u*u*(3-2*u),q=n===2?u:e;
+  pts.push({x:+(s.start.x+(s.end.x-s.start.x)*q).toFixed(3),y:+(s.start.y+(s.end.y-s.start.y)*q).toFixed(3),t:+(s.seconds*u).toFixed(5)})}
+ return gestureArchive(pts)}
+function b64(u){let s='';for(let i=0;i<u.length;i++)s+=String.fromCharCode(u[i]);return btoa(s).replace(/(.{52})/g,'$1\n\t\t\t')}
+function xmlEsc(s){return String(s).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}
+function makeVCC(shots){
+ const now=new Date().toISOString().replace(/\.\d+Z$/,'Z');
+ let x='<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n<dict>\n\t<key>CommandsTable</key>\n\t<dict>\n';
+ shots.forEach((g,i)=>{const id='Custom.'+(700000000+Math.floor(Math.random()*99999999))+'.'+(100000+Math.floor(Math.random()*899999)+i);
+  x+=`\t\t<key>${id}</key>\n\t\t<dict>\n\t\t\t<key>ConfirmationRequired</key>\n\t\t\t<false/>\n\t\t\t<key>CustomCommands</key>\n\t\t\t<dict>\n\t\t\t\t<key>ja_JP</key>\n\t\t\t\t<array>\n\t\t\t\t\t<string>${xmlEsc(g.name)}</string>\n\t\t\t\t</array>\n\t\t\t</dict>\n\t\t\t<key>CustomGesture</key>\n\t\t\t<data>\n\t\t\t${b64(makeGesture(g))}\n\t\t\t</data>\n\t\t\t<key>CustomModifyDate</key>\n\t\t\t<date>${now}</date>\n\t\t\t<key>CustomScope</key>\n\t\t\t<string>com.apple.speech.SystemWideScope</string>\n\t\t\t<key>CustomType</key>\n\t\t\t<string>RunGesture</string>\n\t\t</dict>\n`});
+ x+='\t</dict>\n\t<key>ExportDate</key>\n\t<real>'+(Date.now()/1000-978307200)+'</real>\n\t<key>SystemVersion</key>\n\t<dict>\n\t\t<key>ProductName</key>\n\t\t<string>iPhone OS</string>\n\t\t<key>ProductVersion</key>\n\t\t<string>18.7.8</string>\n\t</dict>\n</dict>\n</plist>\n';return x}
+
+$('dv').onclick=()=>{if(!shots.length)return alert('先に「保存」でショットを追加してください');const nm=shots.map(s=>s.name),dup=nm.find((n,i)=>nm.indexOf(n)!==i);if(dup)return alert('「'+dup+'」が重複しています。表の名前を直してください');dlf(fname()+'.voicecontrolcommands',makeVCC(shots))};
+render();draw();
+</script></body></html>
