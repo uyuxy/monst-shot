@@ -98,8 +98,8 @@ function sim(){
  if(!start||!dir)return null;const w=walls(),R=cv.width*$('rad').value/100,N=+$('bn').value;
  let x=start.x,y=start.y,dx=dir.x,dy=dir.y;const pts=[{x,y}],ds=[[dx,dy]];
  for(let n=0;n<=N;n++){let tx=1e9,ty=1e9;
-  if(dx>0)tx=(w.r-R-x)/dx;else if(dx<0)tx=(w.l+R-x)/dx;
-  if(dy>0)ty=(w.b-R-y)/dy;else if(dy<0)ty=(w.t+R-y)/dy;
+  if(dx>0)tx=(w.r-x)/dx;else if(dx<0)tx=(w.l-x)/dx;
+  if(dy>0)ty=(w.b-y)/dy;else if(dy<0)ty=(w.t-y)/dy;
   const t=Math.max(0,Math.min(tx,ty));x+=dx*t;y+=dy*t;pts.push({x,y});
   if(n===N)break;if(tx<=ty)dx=-dx;else dy=-dy;ds.push([dx,dy])}
  return{pts,ds}}
