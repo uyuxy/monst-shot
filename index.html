@@ -7,130 +7,132 @@
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161616;--fg:#eee;--card:#222;--bd:#3a3a3a;--ac:#6b9bff}}
 :root[data-theme="dark"]{--bg:#161616;--fg:#eee;--card:#222;--bd:#3a3a3a;--ac:#6b9bff}
 *{box-sizing:border-box}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
-body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 -apple-system,"Hiragino Sans",sans-serif;padding:env(safe-area-inset-top,0px) 8px env(safe-area-inset-bottom,0px)}
-h1{font-size:17px;margin:10px 0}
-.wrap{max-width:960px;margin:auto;display:grid;gap:10px}
-.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:10px}
-canvas{width:100%;max-height:70vh;object-fit:contain;touch-action:none;background:#888;border-radius:6px;display:block}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 -apple-system,"Hiragino Sans",sans-serif}
+.wrap{max-width:720px;margin:auto;display:grid;gap:8px;padding:0 4px 12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:8px}
+#vp{display:none;margin:0 auto;overflow:hidden;width:fit-content;max-width:100%;touch-action:none;border-radius:6px}
+canvas{display:block;max-width:100%;max-height:calc(100svh - 120px);width:auto;height:auto;transform-origin:0 0}
 label{display:inline-block;margin:2px 8px 2px 0;font-size:13px}
-input[type=number]{width:70px}
+input[type=number]{width:64px}
 input[type=range]{width:120px;vertical-align:middle}
-button{background:var(--ac);color:#fff;border:0;border-radius:8px;padding:7px 12px;margin:3px 3px 3px 0;font-size:13px}
+button{background:var(--ac);color:#fff;border:0;border-radius:8px;padding:9px 12px;margin:3px 3px 3px 0;font-size:14px;min-height:40px}
 button.s{background:transparent;color:var(--fg);border:1px solid var(--bd)}
-.gauge{height:14px;background:var(--bd);border-radius:7px;overflow:hidden}
-.gauge i{display:block;height:100%;width:0;background:var(--ac)}
+.pad{display:inline-grid;grid-template-columns:repeat(3,44px);gap:3px;vertical-align:middle}
+.pad button{margin:0;padding:0}
 .small{font-size:12px;opacity:.75}
 .scroll{overflow-x:auto}
 table{border-collapse:collapse;font-size:12px;white-space:nowrap}
 td,th{border-bottom:1px solid var(--bd);padding:3px 6px;text-align:left}
 </style></head><body>
 <div class="wrap">
-<h1>モンスト ショット固定ツール</h1>
-<div class="card">
-<input type="file" id="file" accept="image/*">
-<span class="small">① スクショ読込 → ② 「スタート位置」でキャラ位置をタップ → ③ 「引っ張り」でドラッグ（引いた逆方向に飛ぶ）</span>
-<div style="margin-top:6px">
-<button id="mStart">スタート位置</button><button id="mPull" class="s">引っ張り</button>
-<label>反射回数 <input type="number" id="bn" value="6" min="1" max="20"></label>
-<label>キャラ半径 <input type="number" id="rad" value="22" min="0"></label>
-</div></div>
+<div class="card"><input type="file" id="file" accept="image/*"> <span id="info" class="small">スクショを読み込んでください</span></div>
+<div id="vp"><canvas id="cv" width="360" height="640"></canvas></div>
 
-<div class="card"><canvas id="cv" width="720" height="1280"></canvas>
-<div class="gauge" style="margin-top:6px"><i id="g"></i></div>
-<div id="info" class="small">スクショを読み込んでください</div></div>
+<div class="card">
+<button data-m="start">スタート位置</button><button data-m="pull" class="s">角度（引っ張り）</button><button data-m="move" class="s">移動</button>
+<button class="s" id="zi">＋</button><button class="s" id="zo">－</button><button class="s" id="zr">戻す</button><br>
+<b class="small">位置の微調整</b>
+<span class="pad"><span></span><button data-n="0,-1">↑</button><span></span><button data-n="-1,0">←</button><span></span><button data-n="1,0">→</button><span></span><button data-n="0,1">↓</button><span></span></span>
+<label>幅 <select id="nst"><option value="0.1">細かい</option><option value="0.4" selected>普通</option></select></label><br>
+<b class="small">角度の微調整</b>
+<button class="s" data-a="-1">左へ1°</button><button class="s" data-a="-0.1">左へ0.1°</button><button class="s" data-a="0.1">右へ0.1°</button><button class="s" data-a="1">右へ1°</button>
+</div>
+
+<div class="card">
+<label>名前 <input type="text" id="nm" value="ショット1" style="width:110px"></label>
+<label>引き方 <select id="mode"><option value="0.5">ゲージ有</option><option value="0.01">即打ち</option></select></label>
+<label>引っ張る長さ <input type="number" id="len" value="100" min="20" max="300"></label>
+<label>ファイル名 <input type="text" id="fn" value="monst-shots" style="width:120px"></label><br>
+<button id="add">ファイルを作成</button><button id="dv">ファイルを保存</button>
+<div class="scroll"><table id="tb"></table></div>
+</div>
 
 <div class="card"><button id="opb" class="s">オプション（壁の調整）</button>
 <div id="opt" style="display:none;margin-top:8px"><span class="small">反射する壁の位置（%）を画像に合わせて調整</span><br>
 <label>左 <input type="range" id="bl" min="0" max="50" step="0.1" value="3.3"></label>
 <label>右 <input type="range" id="br" min="50" max="100" step="0.1" value="96.3"></label>
 <label>上 <input type="range" id="bt" min="0" max="60" step="0.1" value="21"></label>
-<label>下 <input type="range" id="bb" min="30" max="100" step="0.1" value="68.2"></label>
+<label>下 <input type="range" id="bb" min="30" max="100" step="0.1" value="68.2"></label><br>
+<label>反射回数 <input type="number" id="bn" value="6" min="1" max="20"></label>
+<label>キャラの大きさ(%) <input type="number" id="rad" value="4.4" min="1" max="12" step="0.1"></label>
 </div></div>
-
-<div class="card">
-<b>ショット設定</b><br>
-<label>名前 <input type="text" id="nm" value="ショット1" style="width:110px"></label>
-<label>引き方 <select id="mode"><option value="0.5">ゲージ有</option><option value="0.01">即打ち</option></select></label>
-<label>iPhone画面(pt) <input type="number" id="sw" value="390">×<input type="number" id="sh" value="844"></label>
-<label><input type="checkbox" id="ctr" checked> 引き始めを画面中央に寄せる</label><label>中心(pt) <input type="number" id="cx" value="195">,<input type="number" id="cy" value="422"></label><label>ファイル名 <input type="text" id="fn" value="monst-shots" style="width:120px"></label><br><label>引っ張る長さ <input type="number" id="mx" value="160"></label><br>
-<button id="add">ファイルを作成</button><button id="dv">ファイルを保存</button>
-<div class="scroll"><table id="tb"></table></div>
-
-</div></div>
+</div>
 <script>
 const $=id=>document.getElementById(id);
-const cv=$('cv'),c=cv.getContext('2d');
-let img=null,mode='start',start=null,pull=null,shots=[];
+const SW=390;
+const cv=$('cv'),c=cv.getContext('2d'),vp=$('vp');
+let img=null,mode='start',start=null,dir=null,shots=[],V={z:1,x:0,y:0};
 try{const t=localStorage.getItem('monstShots');if(t)shots=JSON.parse(t)}catch(e){}
 $('file').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
- r.onload=()=>{const i=new Image();i.onload=()=>{img=i;cv.width=i.width;cv.height=i.height;start=null;pull=null;draw()};i.src=r.result};r.readAsDataURL(f)};
-$('mStart').onclick=()=>{mode='start';$('mStart').className='';$('mPull').className='s'};
-$('mPull').onclick=()=>{mode='pull';$('mPull').className='';$('mStart').className='s'};
-['bl','br','bt','bb','bn','rad','mx'].forEach(i=>$(i).oninput=draw);
-function pos(e){const r=cv.getBoundingClientRect();
- const s=Math.min(r.width/cv.width,r.height/cv.height),w=cv.width*s,h=cv.height*s,ox=(r.width-w)/2,oy=(r.height-h)/2;
- return{x:(e.clientX-r.left-ox)/s,y:(e.clientY-r.top-oy)/s}}
-let drag=false;
-cv.onpointerdown=e=>{const p=pos(e);if(mode==='start'){start=p;pull=null}else if(start){drag=true;pull=p}draw()};
-cv.onpointermove=e=>{if(drag){pull=pos(e);draw()}};
-cv.onpointerup=()=>drag=false;
+ r.onload=()=>{const i=new Image();i.onload=()=>{img=i;cv.width=i.width;cv.height=i.height;start=null;dir=null;V={z:1,x:0,y:0};vp.style.display='block';applyV();draw()};i.src=r.result};r.readAsDataURL(f)};
+document.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{mode=b.dataset.m;document.querySelectorAll('[data-m]').forEach(x=>x.className=x===b?'':'s')});
+function applyV(){const w=cv.offsetWidth,h=cv.offsetHeight;V.z=Math.min(8,Math.max(1,V.z));V.x=Math.min(0,Math.max(w-w*V.z,V.x));V.y=Math.min(0,Math.max(h-h*V.z,V.y));cv.style.transform=`translate(${V.x}px,${V.y}px) scale(${V.z})`}
+function zoomAt(px,py,nz){nz=Math.min(8,Math.max(1,nz));const ix=(px-V.x)/V.z,iy=(py-V.y)/V.z;V.z=nz;V.x=px-ix*nz;V.y=py-iy*nz;applyV()}
+$('zi').onclick=()=>zoomAt(vp.clientWidth/2,vp.clientHeight/2,V.z*1.5);
+$('zo').onclick=()=>zoomAt(vp.clientWidth/2,vp.clientHeight/2,V.z/1.5);
+$('zr').onclick=()=>{V={z:1,x:0,y:0};applyV()};
+window.addEventListener('resize',applyV);
+const P=new Map();let pin=null,lastP=null,noAct=false;
+const vpt=e=>{const r=vp.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}};
+function act(e){if(!img)return;const r=cv.getBoundingClientRect();const p={x:(e.clientX-r.left)/r.width*cv.width,y:(e.clientY-r.top)/r.height*cv.height};
+ if(mode==='start')start=p;else if(mode==='pull'&&start){const dx=start.x-p.x,dy=start.y-p.y,L=Math.hypot(dx,dy);if(L>3)dir={x:dx/L,y:dy/L}}
+ draw()}
+vp.onpointerdown=e=>{vp.setPointerCapture(e.pointerId);P.set(e.pointerId,vpt(e));
+ if(P.size===2){const[a,b]=[...P.values()];pin={d:Math.hypot(a.x-b.x,a.y-b.y),z:V.z,x:V.x,y:V.y,cx:(a.x+b.x)/2,cy:(a.y+b.y)/2};noAct=true;return}
+ if(P.size===1){noAct=false;lastP=vpt(e);if(mode!=='move')act(e)}};
+vp.onpointermove=e=>{if(!P.has(e.pointerId))return;const p=vpt(e);P.set(e.pointerId,p);
+ if(P.size>=2&&pin){const[a,b]=[...P.values()];const d=Math.hypot(a.x-b.x,a.y-b.y),cx=(a.x+b.x)/2,cy=(a.y+b.y)/2;
+  const nz=Math.min(8,Math.max(1,pin.z*d/pin.d)),ix=(pin.cx-pin.x)/pin.z,iy=(pin.cy-pin.y)/pin.z;V.z=nz;V.x=cx-ix*nz;V.y=cy-iy*nz;applyV();return}
+ if(P.size===1){if(mode==='move'){V.x+=p.x-lastP.x;V.y+=p.y-lastP.y;applyV()}else if(!noAct)act(e);lastP=p}};
+const up=e=>{P.delete(e.pointerId);if(P.size<2)pin=null;if(P.size===1)lastP=[...P.values()][0]};
+vp.onpointerup=up;vp.onpointercancel=up;
+vp.onwheel=e=>{e.preventDefault();const p=vpt(e);zoomAt(p.x,p.y,V.z*(e.deltaY<0?1.2:1/1.2))};
+document.querySelectorAll('[data-n]').forEach(b=>b.onclick=()=>{if(!start)return;const[a,d]=b.dataset.n.split(',').map(Number),s=cv.width*$('nst').value/100;start.x+=a*s;start.y+=d*s;draw()});
+document.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{if(!start)return;const t=+b.dataset.a*Math.PI/180,cs=Math.cos(t),sn=Math.sin(t);if(!dir)dir={x:0,y:-1};dir={x:dir.x*cs-dir.y*sn,y:dir.x*sn+dir.y*cs};draw()});
+['bl','br','bt','bb','bn','rad'].forEach(i=>$(i).oninput=draw);
+$('opb').onclick=()=>{const o=$('opt');o.style.display=o.style.display==='none'?'block':'none';draw()};
 function walls(){const W=cv.width,H=cv.height;return{l:W*$('bl').value/100,r:W*$('br').value/100,t:H*$('bt').value/100,b:H*$('bb').value/100}}
 function sim(){
- if(!start||!pull)return null;
- let dx=start.x-pull.x,dy=start.y-pull.y;const L=Math.hypot(dx,dy);if(L<3)return null;
- dx/=L;dy/=L;const w=walls(),R=+$('rad').value;
- const pts=[{x:start.x,y:start.y}],angs=[];let x=start.x,y=start.y;
- angs.push(ang(dx,dy));
- for(let n=0;n<=+$('bn').value;n++){
-  let tx=1e9,ty=1e9;
+ if(!start||!dir)return null;const w=walls(),R=cv.width*$('rad').value/100,N=+$('bn').value;
+ let x=start.x,y=start.y,dx=dir.x,dy=dir.y;const pts=[{x,y}],ds=[[dx,dy]];
+ for(let n=0;n<=N;n++){let tx=1e9,ty=1e9;
   if(dx>0)tx=(w.r-R-x)/dx;else if(dx<0)tx=(w.l+R-x)/dx;
   if(dy>0)ty=(w.b-R-y)/dy;else if(dy<0)ty=(w.t+R-y)/dy;
   const t=Math.max(0,Math.min(tx,ty));x+=dx*t;y+=dy*t;pts.push({x,y});
-  if(n===+$('bn').value)break;
-  if(tx<=ty)dx=-dx;else dy=-dy;
-  if(tx===ty){dx=dx}
-  angs.push(ang(dx,dy));
- }
- return{pts,angs,L}}
-function ang(dx,dy){return Math.round((Math.atan2(dx,-dy)*180/Math.PI)*10)/10} // 真上=0°, 右が+
+  if(n===N)break;if(tx<=ty)dx=-dx;else dy=-dy;ds.push([dx,dy])}
+ return{pts,ds}}
+const ang=d=>Math.round(((Math.atan2(-d[1],d[0])*180/Math.PI+360)%360)*10)/10;
 function draw(){
- c.clearRect(0,0,cv.width,cv.height);
- if(img)c.drawImage(img,0,0);else{c.fillStyle='#777';c.fillRect(0,0,cv.width,cv.height)}
- const w=walls(),k=cv.width/360;
- c.strokeStyle='rgba(255,200,0,.9)';c.lineWidth=2*k;c.setLineDash([8*k,6*k]);c.strokeRect(w.l,w.t,w.r-w.l,w.b-w.t);c.setLineDash([]);
+ const W=cv.width,k=W/400;
+ c.clearRect(0,0,W,cv.height);
+ if(img)c.drawImage(img,0,0);else{c.fillStyle='#777';c.fillRect(0,0,W,cv.height)}
+ if($('opt').style.display!=='none'){const w=walls();c.strokeStyle='rgba(255,200,0,.9)';c.lineWidth=2*k;c.setLineDash([8*k,6*k]);c.strokeRect(w.l,w.t,w.r-w.l,w.b-w.t);c.setLineDash([])}
+ const R=W*$('rad').value/100;
+ if(start&&dir){const L=+$('len').value/SW*W;c.strokeStyle='rgba(255,80,80,.85)';c.lineWidth=2*k;c.beginPath();c.moveTo(start.x,start.y);c.lineTo(start.x-dir.x*L,start.y-dir.y*L);c.stroke()}
  const s=sim();
- if(start){c.fillStyle='rgba(0,200,255,.5)';c.beginPath();c.arc(start.x,start.y,+$('rad').value,0,7);c.fill();c.strokeStyle='#fff';c.lineWidth=2*k;c.stroke()}
- if(pull&&start){c.strokeStyle='rgba(255,80,80,.9)';c.lineWidth=3*k;c.beginPath();c.moveTo(start.x,start.y);c.lineTo(pull.x,pull.y);c.stroke()}
- let ratio=0;
- if(s){
-  ratio=Math.min(1,s.L/(+$('mx').value));
-  c.lineWidth=4*k;c.font=(13*k)+'px sans-serif';
-  s.pts.forEach((p,i)=>{
-   if(i>0){c.strokeStyle=`hsl(${(i*55)%360},90%,55%)`;c.beginPath();c.moveTo(s.pts[i-1].x,s.pts[i-1].y);c.lineTo(p.x,p.y);c.stroke();
-    const mx=(p.x+s.pts[i-1].x)/2,my=(p.y+s.pts[i-1].y)/2;
-    c.fillStyle='#000';c.fillRect(mx-2,my-14*k,52*k,17*k);c.fillStyle='#fff';c.fillText(s.angs[i-1]+'°',mx,my)}
-   c.fillStyle='#fff';c.beginPath();c.arc(p.x,p.y,4*k,0,7);c.fill()});
-  $('info').textContent='発射角 '+s.angs[0]+'°（真上0°・右+）/ 水平から '+(90-Math.abs(s.angs[0])).toFixed(1)+'° / 引き '+Math.round(s.L)+'px / 反射 '+(s.pts.length-2)+'回 / 各区間の角度は線上に表示'}
- $('g').style.width=ratio*100+'%'}
-function fit(x0,y0,x1,y1,sw,sh){
- let vx=x1-x0,vy=y1-y0;
- if(!$('ctr').checked)return{start:{x:Math.round(x0),y:Math.round(y0)},end:{x:Math.round(x1),y:Math.round(y1)}};
- const cx=+$('cx').value,cy=+$('cy').value,M=20,hx=Math.abs(vx)/2,hy=Math.abs(vy)/2;
- let k=1;if(hx>0)k=Math.min(k,(Math.min(cx,sw-cx)-M)/hx);if(hy>0)k=Math.min(k,(Math.min(cy,sh-cy)-M)/hy);
- k=Math.max(0.05,k);vx*=k;vy*=k;const r=n=>Math.round(n*10)/10;
- return{start:{x:r(cx-vx/2),y:r(cy-vy/2)},end:{x:r(cx+vx/2),y:r(cy+vy/2)}}}
+ if(s){c.lineWidth=3*k;c.font=(13*k)+'px sans-serif';
+  s.pts.forEach((p,i)=>{if(i===0)return;const q=s.pts[i-1];
+   c.strokeStyle=`hsl(${(i*55)%360},90%,55%)`;c.beginPath();c.moveTo(q.x,q.y);c.lineTo(p.x,p.y);c.stroke();
+   if(i<=2){const t=ang(s.ds[i-1])+'°',mx=(p.x+q.x)/2,my=(p.y+q.y)/2,tw=c.measureText(t).width;
+    c.fillStyle='rgba(0,0,0,.75)';c.fillRect(mx-4*k,my-14*k,tw+8*k,18*k);c.fillStyle='#fff';c.fillText(t,mx,my)}});
+  $('info').textContent='発射 '+ang(s.ds[0])+'°'+(s.ds[1]?' / 1反射後 '+ang(s.ds[1])+'°':'')+' / 反射 '+(s.pts.length-2)+'回'}
+ if(start){c.fillStyle='rgba(0,200,255,.35)';c.beginPath();c.arc(start.x,start.y,R,0,7);c.fill();c.strokeStyle='#fff';c.lineWidth=2*k;c.stroke();
+  c.beginPath();c.moveTo(start.x-4*k,start.y);c.lineTo(start.x+4*k,start.y);c.moveTo(start.x,start.y-4*k);c.lineTo(start.x,start.y+4*k);c.stroke()}}
 function gesture(){
- const s=sim();if(!s)return null;
- const m=$('mode').value,sw=+$('sw').value,sh=+$('sh').value;
- const sx=start.x/cv.width,sy=start.y/cv.height,ex=pull.x/cv.width,ey=pull.y/cv.height;
- return{name:$('nm').value,seconds:+m,angle:s.angs[0],
-  ...fit(sx*sw,sy*sh,ex*sw,ey*sh,sw,sh),
-  gauge:Math.round(Math.min(1,s.L/(+$('mx').value))*100),bounces:s.pts.length-2}}
-$('add').onclick=()=>{const g=gesture();if(!g)return alert('スタート位置と引っ張りを設定してください');if(shots.some(s=>s.name===g.name))return alert('「'+g.name+'」は同じ名前のショットが既にあります。同じ名前だと最初の1つしか実行されないので、別の名前にしてください');shots.push(g);$('nm').value=g.name.replace(/(\d+)(?!.*\d)/,m=>+m+1)===g.name?g.name+'2':g.name.replace(/(\d+)(?!.*\d)/,m=>+m+1);save();render()};
+ if(!start||!dir)return null;
+ const sh=SW*cv.height/cv.width,len=+$('len').value,cx=SW/2,cy=sh/2,M=20;
+ let vx=-dir.x*len,vy=-dir.y*len,k=1;const hx=Math.abs(vx)/2,hy=Math.abs(vy)/2;
+ if(hx>0)k=Math.min(k,(Math.min(cx,SW-cx)-M)/hx);if(hy>0)k=Math.min(k,(Math.min(cy,sh-cy)-M)/hy);
+ vx*=k;vy*=k;const r=n=>Math.round(n*10)/10,s=sim();
+ return{name:$('nm').value,seconds:+$('mode').value,angle:ang([dir.x,dir.y]),start:{x:r(cx-vx/2),y:r(cy-vy/2)},end:{x:r(cx+vx/2),y:r(cy+vy/2)},bounces:s?s.pts.length-2:0}}
+$('add').onclick=()=>{const g=gesture();if(!g)return alert('スタート位置を決めて、角度（引っ張り）を設定してください');
+ if(shots.some(s=>s.name===g.name))return alert('「'+g.name+'」は同じ名前のショットが既にあります。同じ名前だと最初の1つしか実行されないので、別の名前にしてください');
+ shots.push(g);const n=g.name.replace(/(\d+)(?!.*\d)/,m=>+m+1);$('nm').value=n===g.name?g.name+'2':n;save();render()};
 function save(){try{localStorage.setItem('monstShots',JSON.stringify(shots))}catch(e){}}
-function render(){$('tb').innerHTML='<tr><th>名前</th><th>始点</th><th>終点</th><th>時間</th><th>角度</th><th>ゲージ</th><th></th></tr>'+
- shots.map((g,i)=>`<tr><td><input value="${esc(g.name)}" style="width:90px" onchange="shots[${i}].name=this.value;save()"></td><td>${g.start.x},${g.start.y}</td><td>${g.end.x},${g.end.y}</td><td>${g.seconds>=0.1?'ゲージ有':'即打ち'}</td><td>${g.angle}°</td><td>${g.gauge}%</td><td><button class="s" onclick="shots.splice(${i},1);save();render()">削除</button></td></tr>`).join('')}
+function render(){$('tb').innerHTML='<tr><th>名前</th><th>始点</th><th>終点</th><th>引き方</th><th>角度</th><th></th></tr>'+
+ shots.map((g,i)=>`<tr><td><input value="${esc(g.name)}" style="width:90px" onchange="shots[${i}].name=this.value;save()"></td><td>${g.start.x},${g.start.y}</td><td>${g.end.x},${g.end.y}</td><td>${g.seconds>=0.1?'ゲージ有':'即打ち'}</td><td>${g.angle}°</td><td><button class="s" onclick="shots.splice(${i},1);save();render()">削除</button></td></tr>`).join('')}
 function esc(s){return String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))}
 function fname(){return ($('fn').value||'monst-shots').replace(/[\\\/:*?"<>|\s]+/g,'_')}
 async function dlf(name,txt){
@@ -209,6 +211,6 @@ function makeVCC(shots){
  x+='\t</dict>\n\t<key>ExportDate</key>\n\t<real>'+(Date.now()/1000-978307200)+'</real>\n\t<key>SystemVersion</key>\n\t<dict>\n\t\t<key>ProductName</key>\n\t\t<string>iPhone OS</string>\n\t\t<key>ProductVersion</key>\n\t\t<string>18.7.8</string>\n\t</dict>\n</dict>\n</plist>\n';return x}
 
 $('dv').onclick=()=>{if(!shots.length)return alert('先に「ファイルを作成」でショットを追加してください');const nm=shots.map(s=>s.name),dup=nm.find((n,i)=>nm.indexOf(n)!==i);if(dup)return alert('「'+dup+'」が重複しています。表の名前を直してください');dlf(fname()+'.voicecontrolcommands',makeVCC(shots))};
-$('opb').onclick=()=>{const o=$('opt');o.style.display=o.style.display==='none'?'block':'none'};
+document.querySelector('[data-m="start"]').className='';
 render();draw();
 </script></body></html>
