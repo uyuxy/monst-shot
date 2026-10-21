@@ -40,23 +40,23 @@ td,th{border-bottom:1px solid var(--bd);padding:3px 6px;text-align:left}
 <div class="gauge" style="margin-top:6px"><i id="g"></i></div>
 <div id="info" class="small">スクショを読み込んでください</div></div>
 
-<div class="card">
-<b>盤面の範囲（壁）</b> <span class="small">反射する壁の位置を画像に合わせて調整</span><br>
-<label>左 <input type="range" id="bl" min="0" max="50" value="3"></label>
-<label>右 <input type="range" id="br" min="50" max="100" value="97"></label>
-<label>上 <input type="range" id="bt" min="0" max="60" value="17"></label>
-<label>下 <input type="range" id="bb" min="30" max="100" value="78"></label>
-</div>
+<div class="card"><button id="opb" class="s">オプション（壁の調整）</button>
+<div id="opt" style="display:none;margin-top:8px"><span class="small">反射する壁の位置（%）を画像に合わせて調整</span><br>
+<label>左 <input type="range" id="bl" min="0" max="50" step="0.1" value="3.3"></label>
+<label>右 <input type="range" id="br" min="50" max="100" step="0.1" value="96.3"></label>
+<label>上 <input type="range" id="bt" min="0" max="60" step="0.1" value="21"></label>
+<label>下 <input type="range" id="bb" min="30" max="100" step="0.1" value="68.2"></label>
+</div></div>
 
 <div class="card">
 <b>ショット設定</b><br>
 <label>名前 <input type="text" id="nm" value="ショット1" style="width:110px"></label>
-<label>引く時間(秒) <input type="number" id="mode" value="0.5" step="0.01" min="0.01" max="3"></label><button class="s" onclick="$('mode').value=0.5">0.5秒</button><button class="s" onclick="$('mode').value=0.01">0.01秒</button>
+<label>引き方 <select id="mode"><option value="0.5">ゲージ有</option><option value="0.01">即打ち</option></select></label>
 <label>iPhone画面(pt) <input type="number" id="sw" value="390">×<input type="number" id="sh" value="844"></label>
-<label><input type="checkbox" id="ctr" checked> 引き始めを画面中央に寄せる</label><label>中心(pt) <input type="number" id="cx" value="195">,<input type="number" id="cy" value="422"></label><label>ファイル名 <input type="text" id="fn" value="monst-shots" style="width:120px"></label><br><label>最大引き(px) <input type="number" id="mx" value="160"></label><br>
-<button id="add">保存</button><button id="dv">Voice Control用(.voicecontrolcommands)</button><button id="dl" class="s">手順書(.txt)</button><button id="dj" class="s">JSON</button>
+<label><input type="checkbox" id="ctr" checked> 引き始めを画面中央に寄せる</label><label>中心(pt) <input type="number" id="cx" value="195">,<input type="number" id="cy" value="422"></label><label>ファイル名 <input type="text" id="fn" value="monst-shots" style="width:120px"></label><br><label>引っ張る長さ <input type="number" id="mx" value="160"></label><br>
+<button id="add">ファイルを作成</button><button id="dv">ファイルを保存</button>
 <div class="scroll"><table id="tb"></table></div>
-<p class="small">「Voice Control用」をiPhoneに送り（AirDrop/ファイル）、設定 → アクセシビリティ → 音声コントロール → コマンドをカスタマイズ → カスタムコマンドを読み込む、で取り込みます。※claude.ai上で開いた場合は保存の制限で末尾に「.txt」が付きます（GitHub Pagesなど自分のサイトで開けば付きません）。iPhoneの「ファイル」アプリで名前を変更し、「.txt」を消して「.voicecontrolcommands」にしてから取り込んでください。座標はiPhone画面のpt基準で、画面サイズ欄を機種に合わせてください。</p>
+
 </div></div>
 <script>
 const $=id=>document.getElementById(id);
@@ -130,18 +130,13 @@ function gesture(){
 $('add').onclick=()=>{const g=gesture();if(!g)return alert('スタート位置と引っ張りを設定してください');if(shots.some(s=>s.name===g.name))return alert('「'+g.name+'」は同じ名前のショットが既にあります。同じ名前だと最初の1つしか実行されないので、別の名前にしてください');shots.push(g);$('nm').value=g.name.replace(/(\d+)(?!.*\d)/,m=>+m+1)===g.name?g.name+'2':g.name.replace(/(\d+)(?!.*\d)/,m=>+m+1);save();render()};
 function save(){try{localStorage.setItem('monstShots',JSON.stringify(shots))}catch(e){}}
 function render(){$('tb').innerHTML='<tr><th>名前</th><th>始点</th><th>終点</th><th>時間</th><th>角度</th><th>ゲージ</th><th></th></tr>'+
- shots.map((g,i)=>`<tr><td><input value="${esc(g.name)}" style="width:90px" onchange="shots[${i}].name=this.value;save()"></td><td>${g.start.x},${g.start.y}</td><td>${g.end.x},${g.end.y}</td><td>${g.seconds}s</td><td>${g.angle}°</td><td>${g.gauge}%</td><td><button class="s" onclick="shots.splice(${i},1);save();render()">削除</button></td></tr>`).join('')}
+ shots.map((g,i)=>`<tr><td><input value="${esc(g.name)}" style="width:90px" onchange="shots[${i}].name=this.value;save()"></td><td>${g.start.x},${g.start.y}</td><td>${g.end.x},${g.end.y}</td><td>${g.seconds>=0.1?'ゲージ有':'即打ち'}</td><td>${g.angle}°</td><td>${g.gauge}%</td><td><button class="s" onclick="shots.splice(${i},1);save();render()">削除</button></td></tr>`).join('')}
 function esc(s){return String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))}
 function fname(){return ($('fn').value||'monst-shots').replace(/[\\\/:*?"<>|\s]+/g,'_')}
 async function dlf(name,txt){
  if(!window.claude){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt]));a.download=name;document.body.appendChild(a);a.click();a.remove();return}
  if(name.endsWith('.voicecontrolcommands'))name+='.txt';
  try{const d=await claude.use('downloads');if(!d)return alert('このビューでは保存できません');await d.save({filename:name,data:txt})}catch(e){if(!e||e.code!=='declined')alert('保存できませんでした: '+((e&&(e.code||e.message))||e))}}
-$('dl').onclick=()=>{if(!shots.length)return alert('先に「保存」でショットを追加してください');
- let t='モンスト ショット手順書（Voice Control カスタムジェスチャ用）\n\n作成手順:\n設定 > アクセシビリティ > 音声コントロール > コマンドをカスタマイズ > 新規コマンド\nフレーズ=下記の名前 / アクション=カスタムジェスチャを実行 で、始点から終点へ指定時間でなぞって録画。\n座標はiPhone画面(pt)基準。0.5秒=ゆっくり引く、0.01秒=素早く弾く。\n\n';
- shots.forEach((g,i)=>{t+=`${i+1}. フレーズ「${g.name}」\n  始点(x,y): ${g.start.x}, ${g.start.y}\n  終点(x,y): ${g.end.x}, ${g.end.y}\n  引く時間: ${g.seconds}秒 / 発射角: ${g.angle}° / ゲージ: ${g.gauge}% / 反射: ${g.bounces}回\n\n`});
- dlf(fname()+'.txt',t)};
-$('dj').onclick=()=>{if(!shots.length)return alert('先に「保存」でショットを追加してください');dlf(fname()+'.json',JSON.stringify(shots,null,2))};
 class UID{constructor(n){this.n=n}}class Real{constructor(v){this.v=v}}
 function bplist(root){
  const objs=[],memo=new Map();
@@ -213,6 +208,7 @@ function makeVCC(shots){
   x+=`\t\t<key>${id}</key>\n\t\t<dict>\n\t\t\t<key>ConfirmationRequired</key>\n\t\t\t<false/>\n\t\t\t<key>CustomCommands</key>\n\t\t\t<dict>\n\t\t\t\t<key>ja_JP</key>\n\t\t\t\t<array>\n\t\t\t\t\t<string>${xmlEsc(g.name)}</string>\n\t\t\t\t</array>\n\t\t\t</dict>\n\t\t\t<key>CustomGesture</key>\n\t\t\t<data>\n\t\t\t${b64(makeGesture(g))}\n\t\t\t</data>\n\t\t\t<key>CustomModifyDate</key>\n\t\t\t<date>${now}</date>\n\t\t\t<key>CustomScope</key>\n\t\t\t<string>com.apple.speech.SystemWideScope</string>\n\t\t\t<key>CustomType</key>\n\t\t\t<string>RunGesture</string>\n\t\t</dict>\n`});
  x+='\t</dict>\n\t<key>ExportDate</key>\n\t<real>'+(Date.now()/1000-978307200)+'</real>\n\t<key>SystemVersion</key>\n\t<dict>\n\t\t<key>ProductName</key>\n\t\t<string>iPhone OS</string>\n\t\t<key>ProductVersion</key>\n\t\t<string>18.7.8</string>\n\t</dict>\n</dict>\n</plist>\n';return x}
 
-$('dv').onclick=()=>{if(!shots.length)return alert('先に「保存」でショットを追加してください');const nm=shots.map(s=>s.name),dup=nm.find((n,i)=>nm.indexOf(n)!==i);if(dup)return alert('「'+dup+'」が重複しています。表の名前を直してください');dlf(fname()+'.voicecontrolcommands',makeVCC(shots))};
+$('dv').onclick=()=>{if(!shots.length)return alert('先に「ファイルを作成」でショットを追加してください');const nm=shots.map(s=>s.name),dup=nm.find((n,i)=>nm.indexOf(n)!==i);if(dup)return alert('「'+dup+'」が重複しています。表の名前を直してください');dlf(fname()+'.voicecontrolcommands',makeVCC(shots))};
+$('opb').onclick=()=>{const o=$('opt');o.style.display=o.style.display==='none'?'block':'none'};
 render();draw();
 </script></body></html>
