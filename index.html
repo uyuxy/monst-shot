@@ -75,16 +75,25 @@ td,th{border-bottom:1px solid var(--bd);padding:3px 6px;text-align:left}
 </div></div>
 
 <div id="m3" style="display:none;gap:8px">
-<div class="card"><b>連続コマンドを作る</b> <span class="small">ショットを並べ替えて、間の秒数を決めます</span><br>
-<input type="file" id="f3"> <button class="s" id="ad3">ショット作成タブのショットを追加</button> <span id="info3" class="small"></span></div>
+<div class="card"><b id="ttl3">連続コマンドを作る</b> <span class="small">ショットを並べ替えて、間の秒数を決めます</span><br>
+<input type="file" id="f3"> <button class="s" id="ad3">ショット作成タブのショットを追加</button> <span id="info3" class="small"></span><br>
+<label>間隔(秒) <input type="number" id="dg3" value="3" step="0.5" min="0.5" max="30"></label><button class="s" id="ap3">全部に適用</button> <span id="tot3" class="small"></span>
+<div id="sk3" class="small"></div></div>
 <div id="sq" class="card" style="padding:6px"><span class="small">ファイルを読み込むか、ショットを追加してください</span></div>
-<div class="card">
+<div id="outA" class="card">
 <label>連続コマンドの名前 <input id="cn3" value="連続1" style="width:110px"></label>
-<label>間隔(秒) <input type="number" id="dg3" value="3" step="0.5" min="0.5" max="30"></label><button class="s" id="ap3">全部に適用</button><br>
 <label><input type="checkbox" id="orig3" checked> 元のショットも1手ずつ出力</label>
 <label>ファイル名 <input id="fn3" value="renzoku" style="width:110px"></label><br>
-<span id="tot3" class="small"></span><br>
-<button id="sv3">ファイルを保存</button><div id="sk3" class="small"></div></div></div>
+<button id="sv3">ファイルを保存</button></div>
+<div id="outB" class="card" style="display:none">
+<b>LDPlayer用（.record）</b><br>
+<label>解像度 <input type="number" id="rw" value="720" style="width:64px">×<input type="number" id="rh" value="1280" style="width:64px"></label>
+<label>倍率 <input type="number" id="rs" value="1.85" step="0.05" style="width:64px"></label>
+<label><input type="checkbox" id="rc" checked> 引き始めを画面中央に寄せる</label><br>
+<label>離す前の待ち(ms) <input type="number" id="rhold" value="100" min="1" style="width:70px"></label>
+<label>名前 <input id="rn" value="shots" style="width:110px"></label><br>
+<button id="svL">ファイルを保存</button></div>
+</div>
 <div id="opw">
 <div class="card"><button id="opb" class="s">オプション（壁の調整）</button>
 <div id="opt" style="display:none;margin-top:8px"><span class="small">反射する壁の位置（%）を画像に合わせて調整</span><br>
@@ -97,7 +106,7 @@ td,th{border-bottom:1px solid var(--bd);padding:3px 6px;text-align:left}
 <label>キャラの大きさ(%) <input type="number" id="rad" value="4.4" min="1" max="12" step="0.1"></label>
 </div></div>
 </div>
-<div class="card"><button id="t1">ショット作成</button><button id="t2" class="s">既存ファイルの微調整</button><button id="t3" class="s">連続作成</button></div>
+<div class="card"><button id="t1">ショット作成</button><button id="t2" class="s">既存ファイルの微調整</button><button id="t3" class="s">連続作成</button><button id="t4" class="s">LDPlayer変換</button></div>
 
 </div>
 <script>
@@ -182,7 +191,7 @@ function esc(s){return String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','
 function fname(){return ($('fn').value||'monst-shots').replace(/[\\\/:*?"<>|\s]+/g,'_')}
 async function dlf(name,txt){
  if(!window.claude){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt]));a.download=name;document.body.appendChild(a);a.click();a.remove();return}
- if(name.endsWith('.voicecontrolcommands'))name+='.txt';
+ if(/\.(voicecontrolcommands|record)$/.test(name))name+='.txt';
  try{const d=await claude.use('downloads');if(!d)return alert('このビューでは保存できません');await d.save({filename:name,data:txt})}catch(e){if(!e||e.code!=='declined')alert('保存できませんでした: '+((e&&(e.code||e.message))||e))}}
 class UID{constructor(n){this.n=n}}class Real{constructor(v){this.v=v}}
 function bplist(root){
@@ -433,9 +442,31 @@ $('sv3').onclick=()=>{const u=seq.filter(s=>s.on);if(u.length<2)return alert('�
  const list=buildChain(seq,cn,$('orig3').checked),nm=list.map(s=>s.name),dup=nm.find((n,i)=>nm.indexOf(n)!==i);
  if(dup)return alert('「'+dup+'」が重複しています。名前を直してください');
  dlf(($('fn3').value||'renzoku').replace(/[\\\/:*?"<>|\s]+/g,'_')+'.voicecontrolcommands',makeVCC(list))};
-function setTab(n){tab=n;$('m1').style.display=n===1?'grid':'none';$('m2').style.display=n===2?'grid':'none';$('m3').style.display=n===3?'grid':'none';
- $('sh').style.display=n===3?'none':'grid';$('opw').style.display=n===3?'none':'block';
- [1,2,3].forEach(i=>$('t'+i).className=i===n?'':'s');if(n!==3)draw()}
-$('t1').onclick=()=>setTab(1);$('t2').onclick=()=>setTab(2);$('t3').onclick=()=>setTab(3);
+function mapL(it,o){const s=o.s;let vx=(it.end.x-it.start.x)*s,vy=(it.end.y-it.start.y)*s;const cx=o.W/2,cy=o.H/2,M=20;
+ if(o.center){let k=1;const hx=Math.abs(vx)/2,hy=Math.abs(vy)/2;if(hx>0)k=Math.min(k,(cx-M)/hx);if(hy>0)k=Math.min(k,(cy-M)/hy);vx*=k;vy*=k;
+  return{a:{x:cx-vx/2,y:cy-vy/2},b:{x:cx+vx/2,y:cy+vy/2}}}
+ const f=p=>({x:Math.max(5,Math.min(o.W-5,cx+(p.x-195)*s)),y:Math.max(5,Math.min(o.H-5,cy+(p.y-422)*s))});
+ return{a:f(it.start),b:f(it.end)}}
+function buildRecord(seqs,o){
+ const used=seqs.filter(x=>x.on),ops=[],U=15,tp=(t,pt)=>ops.push({timing:t,operationId:'PutMultiTouch',points:pt});
+ let T=500;
+ used.forEach(it=>{const m=mapL(it,o),D=Math.round(it.seconds*1000),n=Math.max(2,Math.round(it.seconds*100)+1);let lx=0,ly=0,lt=T;
+  for(let i=0;i<n;i++){const u=i/(n-1),e=n===2?u:u*u*(3-2*u),x=m.a.x+(m.b.x-m.a.x)*e,y=m.a.y+(m.b.y-m.a.y)*e,t=T+Math.round(D*u);
+   tp(t,[{id:1,x:Math.round(x*U),y:Math.round(y*U),state:1}]);tp(t+1,[]);lx=x;ly=y;lt=t+1}
+  const tr=lt+Math.max(1,o.hold);tp(tr,[{id:1,x:Math.round(lx*U),y:Math.round(ly*U),state:0}]);tp(tr+5,[]);
+  T=tr+5+Math.round(it.gap*1000)});
+ const last=ops.length?ops[ops.length-1].timing:0,d=new Date(),z=n=>String(n).padStart(2,'0');
+ return{operations:ops,recordInfo:{loopType:0,loopTimes:1,circleDuration:last+500,loopInterval:0,loopDuration:0,accelerateTimes:1,accelerateTimesEx:4,recordName:'',
+  createTime:d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())+' '+z(d.getHours())+':'+z(d.getMinutes())+':'+z(d.getSeconds()),
+  playOnBoot:false,rebootTiming:0,closeTiming:0,resolutionWidth:o.W,resolutionHeight:o.H,randomTouch:false,shortkey:0,modifyKey:0}}}
+$('svL').onclick=()=>{if(!seq.some(s=>s.on))return alert('変換するショットがありません');
+ const o={W:+$('rw').value||720,H:+$('rh').value||1280,s:+$('rs').value||1.85,center:$('rc').checked,hold:Math.max(1,+$('rhold').value||100)};
+ const txt=JSON.stringify(buildRecord(seq,o),null,4).replace(/\n/g,'\r\n');
+ dlf(Date.now()+'_'+($('rn').value||'shots').replace(/[\\\/:*?"<>|\s]+/g,'_')+'.record',txt)};
+function setTab(n){tab=n;$('m1').style.display=n===1?'grid':'none';$('m2').style.display=n===2?'grid':'none';$('m3').style.display=n>=3?'grid':'none';
+ $('outA').style.display=n===3?'block':'none';$('outB').style.display=n===4?'block':'none';$('ttl3').textContent=n===4?'LDPlayer用に変換':'連続コマンドを作る';
+ $('sh').style.display=n>=3?'none':'grid';$('opw').style.display=n>=3?'none':'block';
+ [1,2,3,4].forEach(i=>$('t'+i).className=i===n?'':'s');if(n<3)draw()}
+$('t1').onclick=()=>setTab(1);$('t2').onclick=()=>setTab(2);$('t3').onclick=()=>setTab(3);$('t4').onclick=()=>setTab(4);
 render();draw();
 </script></body></html>
